@@ -1,0 +1,19 @@
+{
+  "name": "SyncNote - CRDT Local-First Notepad",
+  "short_name": "SyncNote",
+  "description": "Windows 11 Fluent Local-first CRDT Notepad with Real-time Multi-Device Synchronization",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#191919",
+  "theme_color": "#1f1f1f",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+
