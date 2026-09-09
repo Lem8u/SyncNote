@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "deep-link:default",
+    "deep-link:allow-register",
+    "deep-link:allow-is-registered",
     "opener:default"
   ]
 }

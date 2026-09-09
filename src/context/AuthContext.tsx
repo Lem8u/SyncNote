@@ -51,54 +51,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Robust extraction of syncnote:// URL from command-line arguments or payloads
+  const extractSyncnoteUrl = (arg: string): string | null => {
+    if (typeof arg !== "string") return null;
+    const trimmed = arg.replace(/^["']|["']$/g, "").trim();
+    const match = trimmed.match(/syncnote:\/\/[^\s"']+/i);
+    return match ? match[0] : null;
+  };
+
   // Handle deep link OAuth callback (syncnote://auth/callback#... or ?code=...)
-  const handleAuthCallbackUrl = useCallback(async (urlStr: string) => {
+  const handleAuthCallbackUrl = useCallback(async (rawUrl: string) => {
     try {
-      console.log("[Auth] Handling deep link OAuth callback URL:", urlStr);
+      console.log("[Auth] Handling OAuth deep link URL:", rawUrl);
       const client = getSupabaseClient(config);
-      if (!client) return;
-
-      let hashParams: URLSearchParams | null = null;
-      let queryParams: URLSearchParams | null = null;
-
-      if (urlStr.includes("#")) {
-        const hashPart = urlStr.split("#")[1];
-        hashParams = new URLSearchParams(hashPart);
+      if (!client) {
+        console.warn("[Auth] Supabase client is not configured yet.");
+        return;
       }
-      if (urlStr.includes("?")) {
-        const queryPart = urlStr.split("?")[1].split("#")[0];
-        queryParams = new URLSearchParams(queryPart);
-      }
+      setIsLoading(true);
 
-      // 1. Implicit Grant Flow (access_token in hash)
-      const accessToken = hashParams?.get("access_token");
-      const refreshToken = hashParams?.get("refresh_token");
+      // Normalize custom scheme so standard URL API can parse it cleanly
+      // e.g. syncnote://auth/callback?code=xyz -> https://syncnote.app/auth/callback?code=xyz
+      const normalizedUrl = rawUrl.replace(/^syncnote:\/\//i, "https://syncnote.app/");
+      const parsed = new URL(normalizedUrl);
 
-      if (accessToken && refreshToken) {
-        console.log("[Auth] Setting session from deep link tokens...");
-        const { data, error } = await client.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (error) {
-          console.error("[Auth] Error setting session from tokens:", error);
-        } else if (data.session) {
-          setSession(data.session);
-          setUser(data.session.user);
-          setIsGuest(false);
-          localStorage.removeItem(GUEST_STORAGE_KEY);
-          console.log("[Auth] Successfully authenticated via deep link!");
-        }
+      // 1. Check for OAuth errors in query or hash
+      const hashStr = parsed.hash.startsWith("#") ? parsed.hash.slice(1) : parsed.hash;
+      const hashParams = new URLSearchParams(hashStr);
+      const queryParams = parsed.searchParams;
+
+      const error = queryParams.get("error") || hashParams.get("error");
+      const errorDescription = queryParams.get("error_description") || hashParams.get("error_description");
+
+      if (error) {
+        console.error("[Auth] OAuth callback error:", error, errorDescription);
+        setIsLoading(false);
         return;
       }
 
-      // 2. PKCE Flow (code in query)
-      const code = queryParams?.get("code");
+      // 2. PKCE Flow (code parameter in search or hash)
+      const code = queryParams.get("code") || hashParams.get("code");
       if (code) {
         console.log("[Auth] Exchanging PKCE code for session...");
-        const { data, error } = await client.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.error("[Auth] Error exchanging code for session:", error);
+        const { data, error: exchangeError } = await client.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          console.error("[Auth] exchangeCodeForSession failed:", exchangeError);
         } else if (data.session) {
           setSession(data.session);
           setUser(data.session.user);
@@ -106,10 +103,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.removeItem(GUEST_STORAGE_KEY);
           console.log("[Auth] Successfully authenticated via PKCE deep link!");
         }
+        setIsLoading(false);
         return;
       }
-    } catch (err) {
+
+      // 3. Implicit Grant Flow (access_token & refresh_token in hash)
+      const accessToken = hashParams.get("access_token") || queryParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token") || queryParams.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        console.log("[Auth] Setting session from token grant...");
+        const { data, error: tokenError } = await client.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (tokenError) {
+          console.error("[Auth] setSession failed:", tokenError);
+        } else if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+          setIsGuest(false);
+          localStorage.removeItem(GUEST_STORAGE_KEY);
+          console.log("[Auth] Successfully authenticated via token deep link!");
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      console.warn("[Auth] No OAuth code or tokens found in deep link URL:", rawUrl);
+      setIsLoading(false);
+    } catch (err: any) {
       console.error("[Auth] Failed to process callback URL:", err);
+      setIsLoading(false);
     }
   }, [config]);
 
@@ -128,41 +153,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const setupListeners = async () => {
       try {
-        const { onOpenUrl, getCurrent } = await import("@tauri-apps/plugin-deep-link");
+        const { onOpenUrl, getCurrent, isRegistered, register } = await import("@tauri-apps/plugin-deep-link");
         const { listen } = await import("@tauri-apps/api/event");
 
-        // 1. Check if application was launched directly with a deep link
-        const initialUrls = await getCurrent();
-        if (initialUrls && initialUrls.length > 0) {
-          for (const u of initialUrls) {
-            if (u.startsWith("syncnote://")) {
-              await handleAuthCallbackUrl(u);
-            }
+        // A. Ensure 'syncnote' scheme is registered in Windows OS Registry
+        try {
+          const registered = await isRegistered("syncnote");
+          console.log("[Auth] Deep-link scheme 'syncnote' registered status:", registered);
+          if (!registered) {
+            console.log("[Auth] Registering 'syncnote' protocol in OS registry...");
+            await register("syncnote");
+            console.log("[Auth] 'syncnote' protocol successfully registered.");
           }
+        } catch (regErr) {
+          console.warn("[Auth] Could not check/register deep link scheme in frontend:", regErr);
         }
 
-        // 2. Listen for deep link events while running
-        unlistenUrls = await onOpenUrl(async (urls) => {
-          for (const u of urls) {
-            if (u.startsWith("syncnote://")) {
-              await handleAuthCallbackUrl(u);
-            }
-          }
-        });
-
-        // 3. Listen for single-instance event forwarded from Rust
-        unlistenSingleInstance = await listen<string[]>("deep-link://new-url", async (event) => {
-          const args = event.payload;
-          if (Array.isArray(args)) {
-            for (const arg of args) {
-              if (typeof arg === "string" && arg.startsWith("syncnote://")) {
-                await handleAuthCallbackUrl(arg);
+        // B. Check initial URLs if app was launched via deep link
+        try {
+          const initialUrls = await getCurrent();
+          console.log("[Auth] Initial deep link URLs on startup:", initialUrls);
+          if (initialUrls && initialUrls.length > 0) {
+            for (const u of initialUrls) {
+              const clean = extractSyncnoteUrl(u);
+              if (clean) {
+                await handleAuthCallbackUrl(clean);
               }
             }
           }
-        });
+        } catch (initErr) {
+          console.warn("[Auth] Error reading initial deep link URLs:", initErr);
+        }
+
+        // C. Listen for deep-link events from plugin-deep-link
+        try {
+          unlistenUrls = await onOpenUrl(async (urls) => {
+            console.log("[Auth] onOpenUrl event received:", urls);
+            for (const u of urls) {
+              const clean = extractSyncnoteUrl(u);
+              if (clean) {
+                await handleAuthCallbackUrl(clean);
+              }
+            }
+          });
+        } catch (openUrlErr) {
+          console.warn("[Auth] Error registering onOpenUrl listener:", openUrlErr);
+        }
+
+        // D. Listen for single-instance event forwarded from Rust
+        try {
+          unlistenSingleInstance = await listen<string[]>("deep-link://new-url", async (event) => {
+            console.log("[Auth] single-instance event received:", event.payload);
+            const args = event.payload;
+            if (Array.isArray(args)) {
+              for (const arg of args) {
+                const clean = extractSyncnoteUrl(arg);
+                if (clean) {
+                  await handleAuthCallbackUrl(clean);
+                }
+              }
+            }
+          });
+        } catch (singleInstanceErr) {
+          console.warn("[Auth] Error registering single-instance listener:", singleInstanceErr);
+        }
       } catch (e) {
-        console.warn("[Auth] Failed to setup deep link listener:", e);
+        console.warn("[Auth] Deep link setup encountered error:", e);
       }
     };
 
