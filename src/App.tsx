@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, Suspense } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  Suspense,
+  lazy
+} from "react";
 import { TitleBar } from "./components/layout/TitleBar";
 import { TabBar } from "./components/layout/TabBar";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -10,12 +16,12 @@ import { TabItem, EditorSettings } from "./types/note";
 import { Info, X } from "lucide-react";
 
 // Lazy-load heavy modals to optimize initial startup bundle and rendering speed
-const SettingsModal = React.lazy(() =>
+const SettingsModal = lazy(() =>
   import("./components/modals/SettingsModal").then((module) => ({
     default: module.SettingsModal,
   }))
 );
-const AuthModal = React.lazy(() =>
+const AuthModal = lazy(() =>
   import("./components/modals/AuthModal").then((module) => ({
     default: module.AuthModal,
   }))
