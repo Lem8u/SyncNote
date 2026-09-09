@@ -4,6 +4,7 @@ import { Sparkles, Calendar, Tag } from "lucide-react";
 
 interface EditorCanvasProps {
   note: Note | null;
+  isLocalSynced?: boolean;
   settings: EditorSettings;
   onChangeTitle: (title: string) => void;
   onChangeContent: (content: string) => void;
@@ -13,6 +14,7 @@ interface EditorCanvasProps {
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   note,
+  isLocalSynced: _isLocalSynced = true,
   settings,
   onChangeTitle,
   onChangeContent,
@@ -41,7 +43,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
   if (!note) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#202020] text-neutral-400 p-8 select-none">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#202020] text-neutral-400 p-8 select-none animate-in fade-in duration-150">
         <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4 text-sky-400">
           <Sparkles className="w-8 h-8" />
         </div>

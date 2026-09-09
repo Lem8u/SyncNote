@@ -1,16 +1,24 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { TitleBar } from "./components/layout/TitleBar";
 import { TabBar } from "./components/layout/TabBar";
 import { Sidebar } from "./components/layout/Sidebar";
 import { EditorCanvas } from "./components/editor/EditorCanvas";
 import { StatusBar } from "./components/layout/StatusBar";
-import { SettingsModal } from "./components/modals/SettingsModal";
-import { AuthModal } from "./components/modals/AuthModal";
-import { Login } from "./components/auth/Login";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotesProvider, useNotes } from "./context/NotesContext";
 import { TabItem, EditorSettings } from "./types/note";
-import { Loader2 } from "lucide-react";
+
+// Lazy-load heavy modals to optimize initial startup bundle and rendering speed
+const SettingsModal = React.lazy(() =>
+  import("./components/modals/SettingsModal").then((module) => ({
+    default: module.SettingsModal,
+  }))
+);
+const AuthModal = React.lazy(() =>
+  import("./components/modals/AuthModal").then((module) => ({
+    default: module.AuthModal,
+  }))
+);
 
 function SyncNoteApp() {
   const { user } = useAuth();
@@ -51,6 +59,11 @@ function SyncNoteApp() {
     column: 1,
     selectionLength: 0,
   });
+
+  // Startup profiling: log when App component mounts and renders to DOM
+  useEffect(() => {
+    console.timeLog("startup", "App rendered");
+  }, []);
 
   // Auto-select first note when notes load from IndexedDB and no tab is open
   useEffect(() => {
@@ -275,6 +288,7 @@ function SyncNoteApp() {
 
         <EditorCanvas
           note={activeNote}
+          isLocalSynced={isLocalSynced}
           settings={settings}
           onChangeTitle={handleChangeTitle}
           onChangeContent={handleChangeContent}
@@ -297,42 +311,31 @@ function SyncNoteApp() {
         onResetZoom={handleResetZoom}
       />
 
-      {/* 5. Modals */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onUpdateSettings={(newSettings) =>
-          setSettings((prev) => ({ ...prev, ...newSettings }))
-        }
-      />
-
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-      />
+      {/* 5. Modals (Lazy-loaded) */}
+      <Suspense fallback={null}>
+        {isSettingsOpen && (
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            settings={settings}
+            onUpdateSettings={(newSettings) =>
+              setSettings((prev) => ({ ...prev, ...newSettings }))
+            }
+          />
+        )}
+        {isAuthModalOpen && (
+          <AuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
 
 function RootApp() {
-  const { session, isGuest, isLoading } = useAuth();
-
-  // Loading screen with Windows 11 Fluent dark aesthetics
-  if (isLoading) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#191919] text-white select-none">
-        <Loader2 className="w-8 h-8 text-sky-400 animate-spin mb-3" />
-        <p className="text-xs text-neutral-400 font-medium">Loading SyncNote...</p>
-      </div>
-    );
-  }
-
-  // If not authenticated and not in guest mode, render Login screen
-  if (!session && !isGuest) {
-    return <Login />;
-  }
-
+  // Local-first: Always mount and render the app immediately without auth gating
   return (
     <NotesProvider>
       <SyncNoteApp />

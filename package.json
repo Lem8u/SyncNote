@@ -12,6 +12,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
     "@tauri-apps/api": "~2.0.0",
+    "@tauri-apps/plugin-deep-link": "^2.4.10",
+    "@tauri-apps/plugin-opener": "^2.5.5",
     "clsx": "^2.1.1",
     "lib0": "^0.2.117",
     "lucide-react": "^1.38.0",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "~2.0.0",
+    "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^6.1.1",

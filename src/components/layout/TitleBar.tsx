@@ -100,10 +100,10 @@ export const TitleBar = ({
           )}
           <span className="text-[11px] font-sans">
             {syncStatus === "synced"
-              ? "Synced"
+              ? "Cloud Synced"
               : syncStatus === "syncing"
               ? "Syncing..."
-              : "Offline"}
+              : "Local Mode"}
           </span>
         </button>
 
@@ -111,7 +111,7 @@ export const TitleBar = ({
         {user ? (
           <button
             onClick={onOpenAuthModal}
-            title={`Logged in as ${user.email}`}
+            title={`Logged in as ${user.email} (Cloud Sync Active)`}
             className="flex items-center space-x-1.5 px-2.5 py-1 bg-white/[0.06] hover:bg-white/[0.1] text-neutral-200 text-xs rounded-md border border-white/[0.08] transition-colors cursor-pointer"
           >
             <div className="w-4 h-4 rounded-full bg-sky-500 flex items-center justify-center text-[10px] text-black font-bold">
@@ -122,11 +122,11 @@ export const TitleBar = ({
         ) : (
           <button
             onClick={onOpenAuthModal}
-            title="Sign in to synchronize across all your devices"
-            className="flex items-center space-x-1.5 px-2.5 py-1 bg-sky-500 hover:bg-sky-400 text-black text-xs font-semibold rounded-md shadow transition-colors cursor-pointer"
+            title="Enable Cloud Sync to sync notes across devices"
+            className="flex items-center space-x-1.5 px-2.5 py-1 bg-white/[0.08] hover:bg-white/[0.14] text-neutral-200 text-xs font-medium rounded-md border border-white/[0.1] transition-colors cursor-pointer"
           >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Sign In</span>
+            <LogIn className="w-3.5 h-3.5 text-sky-400" />
+            <span>Enable Cloud Sync</span>
           </button>
         )}
 

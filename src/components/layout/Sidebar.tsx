@@ -245,8 +245,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <UserIcon className="w-3 h-3" />
               </div>
               <div>
-                <div className="text-neutral-200 text-xs font-medium">Guest Mode</div>
-                <div className="text-[10px] text-neutral-500">Local Only</div>
+                <div className="text-neutral-200 text-xs font-medium">Local Mode</div>
+                <div className="text-[10px] text-neutral-500">Catatan lokal aktif</div>
               </div>
             </div>
             <button
@@ -257,7 +257,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex items-center space-x-1 px-2 py-0.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 rounded text-[10px] font-semibold border border-sky-500/30 transition-colors"
             >
               <LogIn className="w-2.5 h-2.5" />
-              <span>Login</span>
+              <span>Sign In</span>
             </button>
           </div>
         )}
