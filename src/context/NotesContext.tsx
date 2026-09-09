@@ -13,10 +13,13 @@ import { SupabaseYjsProvider } from "../lib/y-supabase-provider";
 import { getSupabaseClient } from "../lib/supabase";
 import { SyncStatus } from "../types/auth";
 import { useAuth } from "./AuthContext";
+import { initializeLocalStorage, StorageInitResult } from "../lib/storageManager";
 
 interface NotesContextType {
   notes: Note[];
   isLocalSynced: boolean;
+  storageNotice: string | null;
+  dismissStorageNotice: () => void;
   cloudSyncStatus: SyncStatus;
   onlinePeers: number;
   createNote: (title?: string, content?: string, category?: string) => string;
@@ -53,8 +56,13 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const { user, config } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLocalSynced, setIsLocalSynced] = useState<boolean>(false);
+  const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<SyncStatus>("offline");
   const [onlinePeers, setOnlinePeers] = useState<number>(1);
+
+  const dismissStorageNotice = useCallback(() => {
+    setStorageNotice(null);
+  }, []);
 
   // Yjs doc reference & providers
   const ydocRef = useRef<Y.Doc>(new Y.Doc());
@@ -135,7 +143,6 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     refreshNotesFromYDoc();
 
-    console.log("[Startup] IndexedDB init");
     let hasResolved = false;
 
     const finalizeWorkspaceReady = () => {
@@ -144,7 +151,6 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsLocalSynced(true);
       refreshNotesFromYDoc();
 
-      console.log("[Startup] workspace ready");
       console.timeLog("startup", "Database initialized");
       try {
         console.timeEnd("workspace-init");
@@ -165,44 +171,28 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (e) {}
     };
 
-    // 1. Initialize IndexedDB local-first persistence
-    let idbProvider: IndexeddbPersistence | null = null;
-
-    try {
-      idbProvider = new IndexeddbPersistence("syncnote_storage_v1", doc);
-      idbProviderRef.current = idbProvider;
-
-      // Check if provider is already synced
-      if (idbProvider.synced) {
+    // 1. Initialize local persistence with StorageManager (migration, backup, recovery)
+    initializeLocalStorage(doc)
+      .then((result: StorageInitResult) => {
+        idbProviderRef.current = result.provider;
+        if (result.recoveryNotice) {
+          setStorageNotice(result.recoveryNotice);
+        }
         finalizeWorkspaceReady();
-      }
-
-      // Event listener for sync completion
-      idbProvider.on("synced", () => {
+      })
+      .catch((storageErr: any) => {
+        console.error("[Storage] Critical error during storage initialization:", storageErr);
+        setStorageNotice("Local workspace recovery was required. Operating in safe local mode.");
         finalizeWorkspaceReady();
       });
 
-      // Promise resolution
-      idbProvider.whenSynced
-        .then(() => {
-          finalizeWorkspaceReady();
-        })
-        .catch((err) => {
-          console.error("[Startup] IndexedDB whenSynced failed:", err);
-          finalizeWorkspaceReady();
-        });
-    } catch (err) {
-      console.error("[Startup] Failed to create IndexeddbPersistence:", err);
-      finalizeWorkspaceReady();
-    }
-
-    // Safety net fallback timeout (3s) to guarantee no infinite hang
+    // Safety net fallback timeout (2500ms) to guarantee no infinite hang under any circumstance
     const safetyTimer = setTimeout(() => {
       if (!hasResolved) {
-        console.warn("[Startup] IndexedDB initialization safety timeout (3s) reached. Continuing in Local Mode.");
+        console.warn("[Startup] Workspace initialization safety timeout reached. Forcing ready state.");
         finalizeWorkspaceReady();
       }
-    }, 3000);
+    }, 2500);
 
     // 2. Initialize Supabase Realtime Provider
     const spProvider = new SupabaseYjsProvider(doc, {
@@ -220,8 +210,8 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       clearTimeout(safetyTimer);
       notesMap.unobserveDeep(observer);
-      if (idbProvider) {
-        idbProvider.destroy();
+      if (idbProviderRef.current) {
+        idbProviderRef.current.destroy();
       }
       spProvider.destroy();
     };
@@ -334,6 +324,8 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       value={{
         notes,
         isLocalSynced,
+        storageNotice,
+        dismissStorageNotice,
         cloudSyncStatus,
         onlinePeers,
         createNote,

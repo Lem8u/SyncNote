@@ -7,6 +7,7 @@ import { StatusBar } from "./components/layout/StatusBar";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotesProvider, useNotes } from "./context/NotesContext";
 import { TabItem, EditorSettings } from "./types/note";
+import { Info, X } from "lucide-react";
 
 // Lazy-load heavy modals to optimize initial startup bundle and rendering speed
 const SettingsModal = React.lazy(() =>
@@ -25,6 +26,8 @@ function SyncNoteApp() {
   const {
     notes,
     isLocalSynced,
+    storageNotice,
+    dismissStorageNotice,
     cloudSyncStatus,
     onlinePeers,
     createNote,
@@ -262,6 +265,23 @@ function SyncNoteApp() {
         syncStatus={cloudSyncStatus}
         onlinePeers={onlinePeers}
       />
+
+      {/* Storage Recovery Notice Banner */}
+      {storageNotice && (
+        <div className="bg-amber-950/70 border-b border-amber-500/30 px-4 py-1.5 flex items-center justify-between text-xs text-amber-200 animate-in fade-in duration-200 z-20">
+          <div className="flex items-center space-x-2">
+            <Info className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{storageNotice}</span>
+          </div>
+          <button
+            onClick={dismissStorageNotice}
+            className="p-1 hover:bg-white/[0.08] rounded text-amber-300 hover:text-white transition-colors cursor-pointer"
+            title="Dismiss notice"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* 2. Top Tab Strip */}
       <TabBar
