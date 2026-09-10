@@ -260,33 +260,80 @@ async function performMigrationIfNeeded(targetDoc: Y.Doc): Promise<{ migrated: b
 }
 
 /**
+ * Returns partitioned database name based on user id.
+ * Unauthenticated / Guest uses CURRENT_DB_NAME ("syncnote_storage_v2").
+ * Authenticated user uses "syncnote_storage_v2_user_<userId>".
+ */
+export function getDatabaseNameForUser(userId?: string | null): string {
+  if (userId) {
+    return `${CURRENT_DB_NAME}_user_${userId}`;
+  }
+  return CURRENT_DB_NAME;
+}
+
+/**
+ * Safely delete an IndexedDB database.
+ */
+export async function clearDatabase(dbName: string): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window === "undefined" || !window.indexedDB) {
+        return resolve();
+      }
+      console.log(`[Storage] Clearing database "${dbName}"...`);
+      const req = window.indexedDB.deleteDatabase(dbName);
+      req.onsuccess = () => {
+        console.log(`[Storage] Database "${dbName}" cleared successfully.`);
+        resolve();
+      };
+      req.onerror = () => {
+        console.warn(`[Storage] Failed to clear database "${dbName}".`);
+        resolve();
+      };
+      req.onblocked = () => {
+        console.warn(`[Storage] Database "${dbName}" delete blocked.`);
+        resolve();
+      };
+    } catch (e) {
+      console.warn(`[Storage] Error while deleting database "${dbName}":`, e);
+      resolve();
+    }
+  });
+}
+
+/**
  * Initialize local persistence safely with timeout, schema migration, and fallback recovery.
  * Guarantees the application never hangs indefinitely.
  */
-export async function initializeLocalStorage(targetDoc: Y.Doc): Promise<StorageInitResult> {
-  console.log("[Storage] Opening IndexedDB");
+export async function initializeLocalStorage(
+  targetDoc: Y.Doc,
+  dbName: string = CURRENT_DB_NAME
+): Promise<StorageInitResult> {
+  console.log(`[Storage] Opening IndexedDB "${dbName}"`);
 
   let recoveryNotice: string | null = null;
   let isRecovered = false;
 
-  // 1. Check and perform schema migration if needed
-  try {
-    const migrationResult = await performMigrationIfNeeded(targetDoc);
-    if (migrationResult.notice) {
-      recoveryNotice = migrationResult.notice;
+  // 1. Check and perform schema migration if needed (only for primary local DB)
+  if (dbName === CURRENT_DB_NAME) {
+    try {
+      const migrationResult = await performMigrationIfNeeded(targetDoc);
+      if (migrationResult.notice) {
+        recoveryNotice = migrationResult.notice;
+        isRecovered = true;
+      }
+    } catch (migrationErr: any) {
+      console.error("[Storage] Unexpected error in migration phase:", migrationErr);
+      recoveryNotice = "Local workspace recovery was required.";
       isRecovered = true;
     }
-  } catch (migrationErr: any) {
-    console.error("[Storage] Unexpected error in migration phase:", migrationErr);
-    recoveryNotice = "Local workspace recovery was required.";
-    isRecovered = true;
   }
 
-  // 2. Initialize y-indexeddb provider on current schema database with timeout guard
+  // 2. Initialize y-indexeddb provider on target schema database with timeout guard
   let provider: IndexeddbPersistence | null = null;
 
   try {
-    provider = new IndexeddbPersistence(CURRENT_DB_NAME, targetDoc);
+    provider = new IndexeddbPersistence(dbName, targetDoc);
 
     const syncPromise = new Promise<void>((resolve, reject) => {
       if (provider?.synced) {
@@ -312,7 +359,7 @@ export async function initializeLocalStorage(targetDoc: Y.Doc): Promise<StorageI
 
     // Race between sync and safety timeout
     await Promise.race([syncPromise, timeoutPromise]);
-    console.log("[Storage] IndexedDB sync confirmed.");
+    console.log(`[Storage] IndexedDB "${dbName}" sync confirmed.`);
   } catch (syncErr: any) {
     console.warn(`[Storage] Recovery triggered: ${syncErr?.message || syncErr}. Entering safe local mode.`);
     isRecovered = true;
@@ -320,11 +367,11 @@ export async function initializeLocalStorage(targetDoc: Y.Doc): Promise<StorageI
       recoveryNotice = "Local workspace recovery was required. SyncNote is operating in safe local mode.";
     }
 
-    // Attempt safety backup of current DB without deleting it
-    backupDatabase(CURRENT_DB_NAME).catch(() => {});
+    // Attempt safety backup of target DB without deleting it
+    backupDatabase(dbName).catch(() => {});
   }
 
-  console.log("[Storage] Workspace ready");
+  console.log(`[Storage] Workspace ready ("${dbName}")`);
 
   return {
     provider,
@@ -332,3 +379,4 @@ export async function initializeLocalStorage(targetDoc: Y.Doc): Promise<StorageI
     isRecovered,
   };
 }
+

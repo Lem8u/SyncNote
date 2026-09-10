@@ -10,6 +10,7 @@ import { TabBar } from "./components/layout/TabBar";
 import { Sidebar } from "./components/layout/Sidebar";
 import { EditorCanvas } from "./components/editor/EditorCanvas";
 import { StatusBar } from "./components/layout/StatusBar";
+import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotesProvider, useNotes } from "./context/NotesContext";
 import { TabItem, EditorSettings } from "./types/note";
@@ -45,7 +46,13 @@ function SyncNoteApp() {
   } = useNotes();
 
   const [activeNoteId, setActiveNoteId] = useState<string>("");
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  // Responsive sidebar: default open on desktop (>= 1024px), collapsed on tablet/mobile
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
@@ -260,7 +267,7 @@ function SyncNoteApp() {
   });
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#202020] text-[#f3f3f3] select-none font-sans overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-app text-main select-none font-sans overflow-hidden transition-colors">
       {/* 1. Title Bar */}
       <TitleBar
         sidebarOpen={sidebarOpen}
@@ -299,7 +306,7 @@ function SyncNoteApp() {
       />
 
       {/* 3. Main Split View: Sidebar + Editor Canvas */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         <Sidebar
           isOpen={sidebarOpen}
           notes={notes}
@@ -310,6 +317,7 @@ function SyncNoteApp() {
           onDeleteNote={handleDeleteNote}
           onTogglePinNote={handleTogglePinNote}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onCloseSidebar={() => setSidebarOpen(false)}
         />
 
         <EditorCanvas
@@ -371,8 +379,10 @@ function RootApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <RootApp />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RootApp />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

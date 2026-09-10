@@ -18,7 +18,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   onNewTab,
 }) => {
   return (
-    <div className="flex items-center h-9 px-2 bg-[#202020] border-b border-white/[0.08] overflow-x-auto select-none no-scrollbar">
+    <div className="flex items-center h-9 px-2 bg-header border-b border-subtle overflow-x-auto select-none no-scrollbar transition-colors">
       <div className="flex items-center space-x-1 flex-1 overflow-x-auto">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
@@ -26,15 +26,15 @@ export const TabBar: React.FC<TabBarProps> = ({
             <div
               key={tab.id}
               onClick={() => onSelectTab(tab.id)}
-              className={`group relative flex items-center h-8 min-w-[120px] max-w-[200px] px-3 space-x-2 rounded-t-md text-xs cursor-pointer transition-all ${
+              className={`group relative flex items-center h-8 min-w-[100px] sm:min-w-[120px] max-w-[180px] sm:max-w-[200px] px-2.5 sm:px-3 space-x-2 rounded-t-md text-xs cursor-pointer transition-all ${
                 isActive
-                  ? "bg-[#2b2b2b] text-white border-t-2 border-sky-400 font-medium shadow-sm"
-                  : "bg-transparent text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200"
+                  ? "bg-surface text-main border-t-2 border-sky-400 font-medium shadow-xs"
+                  : "bg-transparent text-muted hover:bg-surface-hover hover:text-main"
               }`}
             >
               <FileText
                 className={`w-3.5 h-3.5 shrink-0 ${
-                  isActive ? "text-sky-400" : "text-neutral-400"
+                  isActive ? "text-sky-400" : "text-subtle"
                 }`}
               />
               <span className="truncate flex-1">
@@ -48,7 +48,7 @@ export const TabBar: React.FC<TabBarProps> = ({
               <button
                 onClick={(e) => onCloseTab(e, tab.id)}
                 title="Close tab"
-                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-white/[0.15] text-neutral-400 hover:text-white transition-opacity"
+                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-surface-hover text-muted hover:text-main transition-opacity"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -60,12 +60,11 @@ export const TabBar: React.FC<TabBarProps> = ({
         <button
           onClick={onNewTab}
           title="New Note Tab (Ctrl+N)"
-          className="flex items-center justify-center h-7 w-7 rounded-md hover:bg-white/[0.08] text-neutral-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-md hover:bg-surface-hover text-muted hover:text-main transition-colors cursor-pointer"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
   );
 };
-

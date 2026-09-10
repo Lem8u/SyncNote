@@ -4,14 +4,57 @@
   :root {
     --font-sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
     --font-mono: "Cascadia Code", "Cascadia Mono", Consolas, "Courier New", monospace;
+
+    /* Dark Mode variables (default) */
+    --bg-app: #202020;
+    --bg-sidebar: #191919;
+    --bg-header: #1f1f1f;
+    --bg-surface: #262626;
+    --bg-surface-alt: #1e1e1e;
+    --bg-surface-hover: rgba(255, 255, 255, 0.07);
+    --bg-surface-active: rgba(255, 255, 255, 0.12);
+    --bg-input: #171717;
+    --text-main: #f5f5f5;
+    --text-muted: #a3a3a3;
+    --text-subtle: #737373;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --accent: #38bdf8;
+    --accent-hover: #0ea5e9;
+    --accent-fg: #000000;
+    --scrollbar-thumb: rgba(255, 255, 255, 0.16);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.28);
+  }
+
+  [data-theme="light"] {
+    /* Light Mode variables */
+    --bg-app: #ffffff;
+    --bg-sidebar: #f4f4f6;
+    --bg-header: #f0f0f3;
+    --bg-surface: #ffffff;
+    --bg-surface-alt: #f9f9fb;
+    --bg-surface-hover: rgba(0, 0, 0, 0.05);
+    --bg-surface-active: rgba(0, 0, 0, 0.09);
+    --bg-input: #ffffff;
+    --text-main: #18181b;
+    --text-muted: #52525b;
+    --text-subtle: #71717a;
+    --border-subtle: rgba(0, 0, 0, 0.09);
+    --border-strong: rgba(0, 0, 0, 0.18);
+    --accent: #0284c7;
+    --accent-hover: #0369a1;
+    --accent-fg: #ffffff;
+    --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+    --scrollbar-thumb-hover: rgba(0, 0, 0, 0.32);
   }
 
   body {
     font-family: var(--font-sans);
     user-select: none;
     -webkit-user-select: none;
-    background-color: #202020;
-    color: #ffffff;
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    overflow: hidden;
   }
 }
 
@@ -26,28 +69,72 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Semantic helper utility classes */
+.bg-app {
+  background-color: var(--bg-app);
+}
+
+.bg-sidebar {
+  background-color: var(--bg-sidebar);
+}
+
+.bg-header {
+  background-color: var(--bg-header);
+}
+
+.bg-surface {
+  background-color: var(--bg-surface);
+}
+
+.bg-surface-alt {
+  background-color: var(--bg-surface-alt);
+}
+
+.hover\:bg-surface-hover:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.bg-input {
+  background-color: var(--bg-input);
+}
+
+.text-main {
+  color: var(--text-main);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-subtle {
+  color: var(--text-subtle);
+}
+
+.border-subtle {
+  border-color: var(--border-subtle);
+}
+
+.border-strong {
+  border-color: var(--border-strong);
 }
 
 /* Windows 11 Mica / Acrylic blur simulation */
 .mica-bg {
-  background-color: rgba(32, 32, 32, 0.85);
+  background-color: var(--bg-surface);
   backdrop-filter: blur(30px) saturate(125%);
   -webkit-backdrop-filter: blur(30px) saturate(125%);
 }
 
 .mica-card {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--bg-surface-hover);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border-subtle);
 }
-
-.subtle-border {
-  border-color: rgba(255, 255, 255, 0.08);
-}
-

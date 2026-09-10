@@ -43,12 +43,12 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
   if (!note) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#202020] text-neutral-400 p-8 select-none animate-in fade-in duration-150">
-        <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4 text-sky-400">
+      <div className="flex-1 flex flex-col items-center justify-center bg-app text-muted p-8 select-none animate-in fade-in duration-150 transition-colors">
+        <div className="w-16 h-16 rounded-2xl bg-surface border border-subtle flex items-center justify-center mb-4 text-sky-400 shadow-xs">
           <Sparkles className="w-8 h-8" />
         </div>
-        <h3 className="text-base font-semibold text-neutral-200">No Note Selected</h3>
-        <p className="text-xs text-neutral-400 mt-1 max-w-sm text-center">
+        <h3 className="text-base font-semibold text-main">No Note Selected</h3>
+        <p className="text-xs text-subtle mt-1 max-w-sm text-center">
           Create a new note or select one from the sidebar to start writing.
         </p>
       </div>
@@ -63,31 +63,31 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
       : "font-sans";
 
   return (
-    <div className="flex-1 flex flex-col bg-[#202020] overflow-hidden">
+    <div className="flex-1 flex flex-col bg-app overflow-hidden transition-colors">
       {/* Note Header / Meta info */}
-      <div className="px-8 pt-6 pb-2 border-b border-white/[0.04] bg-[#202020]">
-        <div className="flex items-center space-x-3 mb-2">
+      <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-2 border-b border-subtle bg-app transition-colors">
+        <div className="flex items-center space-x-3 mb-2 flex-wrap gap-y-1">
           {/* Category Selector */}
-          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-white/[0.05] border border-white/[0.08] text-xs text-neutral-300">
+          <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-surface border border-subtle text-xs text-main">
             <Tag className="w-3 h-3 text-sky-400" />
             <select
               value={note.category || "personal"}
               onChange={(e) => onChangeCategory(e.target.value)}
-              className="bg-transparent border-none text-xs text-neutral-300 focus:outline-none cursor-pointer"
+              className="bg-transparent border-none text-xs text-main focus:outline-none cursor-pointer"
             >
-              <option value="personal" className="bg-[#2a2a2a] text-white">
+              <option value="personal" className="bg-surface text-main">
                 Personal
               </option>
-              <option value="work" className="bg-[#2a2a2a] text-white">
+              <option value="work" className="bg-surface text-main">
                 Work
               </option>
-              <option value="ideas" className="bg-[#2a2a2a] text-white">
+              <option value="ideas" className="bg-surface text-main">
                 Ideas
               </option>
             </select>
           </div>
 
-          <span className="flex items-center space-x-1 text-[11px] text-neutral-400 font-mono">
+          <span className="flex items-center space-x-1 text-[11px] text-subtle font-mono">
             <Calendar className="w-3 h-3" />
             <span>
               Updated {new Date(note.updatedAt).toLocaleDateString()}{" "}
@@ -105,30 +105,29 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
           value={note.title}
           onChange={(e) => onChangeTitle(e.target.value)}
           placeholder="Untitled Note"
-          className="w-full bg-transparent text-2xl font-bold text-white placeholder-neutral-600 focus:outline-none border-none tracking-tight"
+          className="w-full text-xl sm:text-2xl font-bold bg-transparent text-main placeholder-subtle border-none focus:outline-none tracking-tight transition-colors"
         />
       </div>
 
-      {/* Main Text Canvas */}
-      <div className="flex-1 relative flex overflow-hidden">
+      {/* Editor Main Canvas Textarea */}
+      <div className="flex-1 relative overflow-hidden bg-app">
         <textarea
           ref={textareaRef}
           value={note.content}
           onChange={(e) => onChangeContent(e.target.value)}
+          onSelect={handleTextareaSelect}
           onKeyUp={handleTextareaSelect}
           onClick={handleTextareaSelect}
-          onSelect={handleTextareaSelect}
-          placeholder="Start typing your note here..."
+          placeholder="Start typing your note here... (Markdown supported)"
           spellCheck={settings.spellCheck}
           wrap={settings.wordWrap ? "soft" : "off"}
           style={{
-            fontSize: `${settings.fontSize * (settings.zoomLevel / 100)}px`,
+            fontSize: `${(settings.fontSize * (settings.zoomLevel || 100)) / 100}px`,
             lineHeight: "1.65",
           }}
-          className={`w-full h-full p-8 bg-transparent text-neutral-100 placeholder-neutral-600 resize-none focus:outline-none border-none ${fontClass} leading-relaxed selection:bg-sky-500/30 overflow-y-auto`}
+          className={`w-full h-full p-4 sm:p-8 bg-transparent text-main placeholder-subtle resize-none border-none focus:outline-none ${fontClass} leading-relaxed selection:bg-sky-500/30 overflow-y-auto`}
         />
       </div>
     </div>
   );
 };
-

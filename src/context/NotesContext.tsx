@@ -13,7 +13,12 @@ import { SupabaseYjsProvider } from "../lib/y-supabase-provider";
 import { getSupabaseClient } from "../lib/supabase";
 import { SyncStatus } from "../types/auth";
 import { useAuth } from "./AuthContext";
-import { initializeLocalStorage, StorageInitResult } from "../lib/storageManager";
+import {
+  initializeLocalStorage,
+  StorageInitResult,
+  getDatabaseNameForUser,
+  clearDatabase,
+} from "../lib/storageManager";
 
 interface NotesContextType {
   notes: Note[];
@@ -29,6 +34,7 @@ interface NotesContextType {
   togglePinNote: (id: string) => void;
   deleteNote: (id: string) => void;
   reconnectCloudSync: () => void;
+  handleSignOut: (options: { removeSyncedWorkspace: boolean }) => Promise<void>;
 }
 
 const NotesContext = createContext<NotesContextType | null>(null);
@@ -172,7 +178,8 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     // 1. Initialize local persistence with StorageManager (migration, backup, recovery)
-    initializeLocalStorage(doc)
+    const initialDbName = getDatabaseNameForUser(user?.id);
+    initializeLocalStorage(doc, initialDbName)
       .then((result: StorageInitResult) => {
         idbProviderRef.current = result.provider;
         if (result.recoveryNotice) {
@@ -217,10 +224,95 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [refreshNotesFromYDoc]);
 
+  // Track active user ID for partitioned local storage switching
+  const activeUserIdRef = useRef<string | null>(user?.id || null);
+  useEffect(() => {
+    const nextUserId = user?.id || null;
+    if (activeUserIdRef.current === nextUserId) {
+      return;
+    }
+
+    const prevUserId = activeUserIdRef.current;
+    activeUserIdRef.current = nextUserId;
+    console.log(`[Storage] Workspace user transitioned: "${prevUserId}" → "${nextUserId}"`);
+
+    // Switch IndexedDB database to match new user
+    if (idbProviderRef.current) {
+      idbProviderRef.current.destroy();
+      idbProviderRef.current = null;
+    }
+
+    const targetDbName = getDatabaseNameForUser(nextUserId);
+    const doc = ydocRef.current;
+    initializeLocalStorage(doc, targetDbName).then((res) => {
+      idbProviderRef.current = res.provider;
+      refreshNotesFromYDoc();
+    });
+  }, [user?.id, refreshNotesFromYDoc]);
+
   // Re-connect cloud sync whenever user or supabase config changes
   useEffect(() => {
     connectCloudSync();
   }, [connectCloudSync]);
+
+  // Sign out and handle workspace isolation
+  const { logout } = useAuth();
+  const handleSignOut = useCallback(
+    async ({ removeSyncedWorkspace }: { removeSyncedWorkspace: boolean }) => {
+      const currentUserId = user?.id;
+      console.log(`[Auth] Executing sign out (removeSyncedWorkspace: ${removeSyncedWorkspace})...`);
+
+      // 1. Disconnect Realtime cloud sync immediately
+      if (supabaseProviderRef.current) {
+        supabaseProviderRef.current.disconnect();
+      }
+      setCloudSyncStatus("offline");
+      setOnlinePeers(1);
+
+      // 2. Disconnect current user IndexedDB persistence
+      if (idbProviderRef.current) {
+        idbProviderRef.current.destroy();
+        idbProviderRef.current = null;
+      }
+
+      const doc = ydocRef.current;
+      const notesMap = doc.getMap<any>("notes");
+
+      if (removeSyncedWorkspace) {
+        // Clear local account DB from disk to eliminate cross-account data leakage
+        if (currentUserId) {
+          const userDbName = getDatabaseNameForUser(currentUserId);
+          await clearDatabase(userDbName);
+        }
+
+        // Reset in-memory Y.Doc to pristine initial state
+        doc.transact(() => {
+          notesMap.forEach((_, key) => notesMap.delete(key));
+          const noteMap = new Y.Map();
+          noteMap.set("id", DEFAULT_WELCOME_NOTE.id);
+          noteMap.set("title", DEFAULT_WELCOME_NOTE.title);
+          noteMap.set("content", DEFAULT_WELCOME_NOTE.content);
+          noteMap.set("category", DEFAULT_WELCOME_NOTE.category);
+          noteMap.set("createdAt", DEFAULT_WELCOME_NOTE.createdAt);
+          noteMap.set("updatedAt", DEFAULT_WELCOME_NOTE.updatedAt);
+          noteMap.set("isPinned", DEFAULT_WELCOME_NOTE.isPinned);
+          notesMap.set(DEFAULT_WELCOME_NOTE.id, noteMap);
+        });
+      }
+
+      // 3. Connect back to guest local storage
+      activeUserIdRef.current = null;
+      const guestDbName = getDatabaseNameForUser(null);
+      const res = await initializeLocalStorage(doc, guestDbName);
+      idbProviderRef.current = res.provider;
+      refreshNotesFromYDoc();
+
+      // 4. Clear Supabase auth session
+      await logout();
+      console.log("[Auth] Sign out complete. Local Mode active.");
+    },
+    [user?.id, logout, refreshNotesFromYDoc]
+  );
 
   // CRUD Operations
   const createNote = useCallback((title = "Untitled Note", content = "", category = "personal"): string => {
@@ -335,6 +427,7 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         togglePinNote,
         deleteNote,
         reconnectCloudSync: connectCloudSync,
+        handleSignOut,
       }}
     >
       {children}
